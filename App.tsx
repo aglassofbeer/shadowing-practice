@@ -276,7 +276,7 @@ function SectionScreen({ navigation, route, sections, setSections }: any) {
         multiline
       />
       <View style={{ marginVertical: 8 }}>
-        <Button title="保存" onPress={saveMemo} disabled={!isMemoChanged} />
+        <Button title="保存" onPress={saveMemo} disabled={memo.trim() === section.memo.trim()} />
       </View>
       <Button title="戻る" onPress={() => navigation.goBack()} />
     </ScrollView>
