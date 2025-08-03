@@ -128,6 +128,19 @@ function OriginalScreen({ navigation, sections, setSections }: any) {
       </View>
       <View style={{ marginTop:16 }}>
         <Button title="セクション保存" onPress={saveSectionAndNavigate} disabled={aPoint===null||bPoint===null} />
+      {/* セクション一覧 */}
+      {sections.length > 0 && (
+        <View style={{ marginTop: 16 }}>
+          {sections.map((sec: Section, idx: number) => (
+            <View key={idx} style={{ marginVertical: 4 }}>
+              <Button
+                title={`セクション ${idx + 1}`}
+                onPress={() => navigation.navigate('Section', { sectionIndex: idx })}
+              />
+            </View>
+          ))}
+        </View>
+      )}
       </View>
     </ScrollView>
   );
