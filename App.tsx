@@ -303,13 +303,15 @@ function SectionScreen({ navigation, route, sections, setSections }: any) {
       newSound.setOnPlaybackStatusUpdate(status => {
         if (!status.isLoaded) return;
         setPosition(status.positionMillis);
-        // B点で再生停止
-        if (status.positionMillis >= section.b) {
-          newSound.stopAsync();
-          setIsPlaying(false);
-          return;
-        }
-        if (status.didJustFinish) setIsPlaying(false);
+        
+
+       // B点で A点 に戻して繰り返し再生
+       if (status.positionMillis >= section.b) {
+         newSound.setPositionAsync(section.a);
+         return;
+       }
+
+
       });
     })();
   // audioUri が変わったら必ず再ロード
