@@ -128,8 +128,12 @@ function OriginalScreen({ navigation, sections, setSections }: any) {
 
   };
 
-  return (
-    <ScrollView contentContainerStyle={styles.container}>
+return (
+  <ScrollView
+    style={{ flex: 1 }}
+    contentContainerStyle={[styles.container, { flexGrow: 1 }]}
+    showsVerticalScrollIndicator={true}
+  >
 
 {/* MP3ファイル選択ボタン */}
 <View style={styles.row}>
@@ -422,8 +426,14 @@ function SectionScreen({ navigation, route, sections, setSections }: any) {
 
   };
 
-  return (
-    <ScrollView contentContainerStyle={styles.container}>
+
+return (
+  <ScrollView
+    style={{ flex: 1 }}
+    contentContainerStyle={[styles.container, { flexGrow: 1 }]}
+    showsVerticalScrollIndicator={true}
+  >
+
       <Text style={styles.title}>📋 セクション {index + 1}</Text>
       <View style={styles.sliderContainer}>
         <Slider
@@ -501,7 +511,7 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#f0f0f0' },
+  container: { padding: 16, backgroundColor: '#f0f0f0' },
   title: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' },
   row: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 6 },
   sliderContainer: { width: '100%', height: 40, marginVertical: 8 },
