@@ -6,6 +6,7 @@ import {
   Text,
   View,
   Button,
+  Alert,
   ScrollView,
   TextInput,
   LayoutChangeEvent,
@@ -339,6 +340,50 @@ function SectionScreen({ navigation, route, sections, setSections }: any) {
     sound.setPositionAsync(newPos);
   };
 
+
+ // ── ここから：削除ハンドラを追加 ──
+ const deleteSection = () => {
+   Alert.alert(
+     'セクションを削除',
+     'このセクションを削除してよろしいですか？',
+     [
+       { text: 'キャンセル', style: 'cancel' },
+       {
+
+
+         text: '削除',
+         style: 'destructive',
+         onPress: async () => {
+           // 1) 状態更新
+           const updated = sections.filter((_, i) => i !== index);
+           setSections(updated);
+           // 2) メタファイルを書き換え
+           if (audioName) {
+             const baseName = audioName
+               .replace(/\.mp3$/i, '')
+               .replace(/[^\w\-]/g, '_');
+             const dir      = FileSystem.documentDirectory + 'audio/';
+             const metaPath = `${dir}${baseName}.section.json`;
+             await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+             await FileSystem.writeAsStringAsync(
+               metaPath,
+               JSON.stringify(updated),
+               { encoding: FileSystem.EncodingType.UTF8 }
+             );
+           }
+           // 3) 画面に戻る
+           navigation.goBack();
+         }
+
+
+
+
+       }
+     ]
+   );
+ };
+ // ── ここまで ──
+
   const startRecording = async () => {
     await Audio.requestPermissionsAsync();
     await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
@@ -478,6 +523,19 @@ return (
       <View style={{ marginVertical: 8 }}>
         <Button title="保存" onPress={saveMemo} disabled={memo.trim() === section.memo.trim()} />
       </View>
+
+
+     {/* ── ここに削除ボタンを追加 ── */}
+     <View style={{ marginVertical: 8 }}>
+       <Button
+         title="セクション削除"
+         color="red"
+         onPress={deleteSection}
+       />
+     </View>
+
+
+
       <Button title="戻る" onPress={() => navigation.goBack()} />
     </ScrollView>
   );
