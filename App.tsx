@@ -386,6 +386,27 @@ function SectionScreen({ navigation, route, sections, setSections }: any) {
     setIsMemoChanged(false);
 
 
+    // --- ここから：メタ保存 (audioName ベース) ---
+    if (audioName) {
+      // 拡張子削除＆英数字と _ のみ残す
+      const baseName = audioName
+        .replace(/\.mp3$/i, '')
+        .replace(/[^\w\-]/g, '_');
+      const dir      = FileSystem.documentDirectory + 'audio/';
+      const metaPath = `${dir}${baseName}.section.json`;
+      // ディレクトリがなければ作成
+      await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+      // 更新済み sections をそのまま JSON で上書き
+      await FileSystem.writeAsStringAsync(
+        metaPath,
+        JSON.stringify(updated),
+        { encoding: FileSystem.EncodingType.UTF8 }
+      );
+    }
+    // --- ここまで ---
+
+
+
     // メタ保存
     if (audioUri) {
       const fileName = audioUri.split('/').pop()!;
