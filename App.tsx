@@ -101,16 +101,32 @@ function OriginalScreen({ navigation, sections, setSections }: any) {
   return (
     <ScrollView contentContainerStyle={styles.container}>
 
-    {/* MP3ファイル選択ボタン */}
-    <View style={styles.row}>
-      <Button title="MP3を選択" onPress={async () => {
-        const res = await DocumentPicker.getDocumentAsync({ type: 'audio/*' });
-        if (res.type === 'success') {
-          setAudioUri(res.uri);
-          if (sound) { await sound.unloadAsync(); setSound(null); }
+{/* MP3ファイル選択ボタン */}
+<View style={styles.row}>
+  <Button
+    title="MP3を選択"
+    onPress={async () => {
+      // 1回だけドキュメントピッカーを呼ぶ
+      const res = await DocumentPicker.getDocumentAsync({
+        type: 'audio/*',
+        copyToCacheDirectory: true,
+      });
+      console.log('📂 Picked raw response:', res);
+
+      // assets 配列から URI を取得
+      const pickedUri = res.assets?.[0]?.uri;
+      console.log('📂 Extracted URI:', pickedUri);
+
+      if (pickedUri) {
+        setAudioUri(pickedUri);
+        if (sound) {
+          await sound.unloadAsync();
+          setSound(null);
         }
-      }} />
-    </View>
+      }
+    }} 
+  />  
+</View>
       
       <Text style={styles.title}>🎧 オリジナル音源</Text>
       <View style={styles.row}>
