@@ -1,5 +1,6 @@
 import 'react-native-gesture-handler';
 import React, { useState, useEffect } from 'react';
+import * as DocumentPicker from 'expo-document-picker'; 
 import {
   StyleSheet,
   Text,
@@ -21,6 +22,7 @@ const Stack = createStackNavigator();
 // オリジナル音源画面コンポーネント
 function OriginalScreen({ navigation, sections, setSections }: any) {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [audioUri, setAudioUri] = useState<string | null>(null);  // ← 追加
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(1);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -48,9 +50,14 @@ function OriginalScreen({ navigation, sections, setSections }: any) {
 
   const loadAndPlay = async () => {
     if (sound) await sound.unloadAsync();
+
+   // 選択されたファイルがあればその URI を、なければ assets/sample.mp3 を読み込む
+    const source = audioUri
+      ? { uri: audioUri }
+      : require('./assets/sample.mp3');
     const { sound: newSound, status } = await Audio.Sound.createAsync(
-      require('./assets/sample.mp3'),
-      { shouldPlay: false, rate: speedRate, shouldCorrectPitch: true }
+      source,
+    { shouldPlay: false, rate: speedRate, shouldCorrectPitch: true }
     );
     setSound(newSound);
     setDuration(status.durationMillis || 1);
@@ -93,6 +100,18 @@ function OriginalScreen({ navigation, sections, setSections }: any) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+
+    {/* MP3ファイル選択ボタン */}
+    <View style={styles.row}>
+      <Button title="MP3を選択" onPress={async () => {
+        const res = await DocumentPicker.getDocumentAsync({ type: 'audio/*' });
+        if (res.type === 'success') {
+          setAudioUri(res.uri);
+          if (sound) { await sound.unloadAsync(); setSound(null); }
+        }
+      }} />
+    </View>
+      
       <Text style={styles.title}>🎧 オリジナル音源</Text>
       <View style={styles.row}>
         <Button title="再生" onPress={loadAndPlay} disabled={isPlaying} />
