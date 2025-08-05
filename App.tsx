@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { Audio } from 'expo-av';
+import * as FileSystem from 'expo-file-system';  // ← 追加
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 
@@ -23,6 +24,7 @@ const Stack = createStackNavigator();
 function OriginalScreen({ navigation, sections, setSections }: any) {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [audioUri, setAudioUri] = useState<string | null>(null);  // ← 追加
+  const [audioName, setAudioName] = useState<string | null>(null); 
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(1);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -95,7 +97,35 @@ function OriginalScreen({ navigation, sections, setSections }: any) {
     const newSection: Section = { a: aPoint, b: bPoint, memo: '' };
     const updated = [...sections, newSection];
     setSections(updated);
-    navigation.navigate('Section', { sectionIndex: updated.length - 1 });
+
+
+   // --- ここから：メタファイル書き込み（audioName ベース） ---
+   if (audioName) {
+     // 拡張子削除＆英数字と _ のみ残す
+     const baseName = audioName
+       .replace(/\.mp3$/i, '')
+       .replace(/[^\w\-]/g, '_');
+     const dir       = FileSystem.documentDirectory + 'audio/';
+     const metaPath  = `${dir}${baseName}.section.json`;
+     await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+     await FileSystem.writeAsStringAsync(
+       metaPath,
+       JSON.stringify(updated),
+       { encoding: FileSystem.EncodingType.UTF8 }
+     );
+   }
+   // --- ここまで ---
+
+
+
+    navigation.navigate('Section', {
+      sectionIndex: updated.length - 1,
+      audioUri,
+      audioName,    // ← 追加
+    });
+
+
+
   };
 
   return (
@@ -115,6 +145,7 @@ function OriginalScreen({ navigation, sections, setSections }: any) {
 
       // assets 配列から URI を取得
       const pickedUri = res.assets?.[0]?.uri;
+      const pickedName = res.assets?.[0]?.name;  
       console.log('📂 Extracted URI:', pickedUri);
 
       if (pickedUri) {
@@ -123,6 +154,44 @@ function OriginalScreen({ navigation, sections, setSections }: any) {
           await sound.unloadAsync();
           setSound(null);
         }
+
+
+        setAudioUri(pickedUri);
+        setAudioName(pickedName!);                              
+
+
+         // --- ここから：メタファイル読み込み ---
+
+        // ファイル名はオリジナル名を使う
+
+
+     const rawName  = pickedName || 'unknown';
+     // サニタイズ（英数字と _ のみ残す）
+     const baseName = rawName.replace(/\.mp3$/i, '')
+                              .replace(/[^\w\-]/g, '_');
+
+
+         const mp3Dir    = FileSystem.documentDirectory + 'audio/';
+         const metaPath = mp3Dir + baseName + '.section.json';
+
+     console.log('[MetaLoad] baseName=', baseName);
+     console.log('[MetaLoad] metaPath=', metaPath);
+
+
+         // ディレクトリ確保
+         await FileSystem.makeDirectoryAsync(mp3Dir, { intermediates: true });
+         // 存在チェック & 読み込み or 初期化
+         const info = await FileSystem.getInfoAsync(metaPath);
+         console.log('[MetaLoad] exists=', info.exists);
+         if (info.exists) {
+           const raw = await FileSystem.readAsStringAsync(metaPath);
+           setSections(JSON.parse(raw));
+         } else {
+           setSections([]);
+         }
+         // --- ここまで ---
+         setAudioUri(pickedUri);
+
       }
     }} 
   />  
@@ -168,10 +237,21 @@ function OriginalScreen({ navigation, sections, setSections }: any) {
         <View style={{ marginTop: 16 }}>
           {sections.map((sec: Section, idx: number) => (
             <View key={idx} style={{ marginVertical: 4 }}>
-              <Button
-                title={`セクション ${idx + 1}`}
-                onPress={() => navigation.navigate('Section', { sectionIndex: idx })}
-              />
+
+
+
+    <Button
+      title={`セクション ${idx + 1}`}
+      onPress={() =>
+        navigation.navigate('Section', {
+          sectionIndex: idx,
+          audioUri,
+          audioName,
+        })
+      }
+    />     
+
+
             </View>
           ))}
         </View>
@@ -183,6 +263,8 @@ function OriginalScreen({ navigation, sections, setSections }: any) {
 
 // セクション画面: 再生/録音/メモ
 function SectionScreen({ navigation, route, sections, setSections }: any) {
+  const audioUri = route.params.audioUri as string;
+  const audioName = route.params.audioName as string; 
   const index = route.params.sectionIndex as number;
   const section = sections[index];
 
@@ -196,11 +278,21 @@ function SectionScreen({ navigation, route, sections, setSections }: any) {
   const [memo, setMemo] = useState(section.memo);
   const [isMemoChanged, setIsMemoChanged] = useState(false);
 
+
+
+
   useEffect(() => {
     (async () => {
-      if (sound) await sound.unloadAsync();
+      if (sound) {
+        await sound.unloadAsync();
+        setSound(null);
+      }
+      // 選択された URI を再生ソースに
+      const source = audioUri
+        ? { uri: audioUri }
+        : require('./assets/sample.mp3');
       const { sound: newSound } = await Audio.Sound.createAsync(
-        require('./assets/sample.mp3'),
+        source,
         { shouldPlay: false, rate: speedRate, shouldCorrectPitch: true }
       );
       setSound(newSound);
@@ -216,7 +308,13 @@ function SectionScreen({ navigation, route, sections, setSections }: any) {
         if (status.didJustFinish) setIsPlaying(false);
       });
     })();
-  }, [index, speedRate]);
+  // audioUri が変わったら必ず再ロード
+  }, [audioUri, index, speedRate]);
+
+
+
+
+
 
   const playSection = async () => {
     if (!sound) return;
@@ -253,20 +351,54 @@ function SectionScreen({ navigation, route, sections, setSections }: any) {
     const { sound: recSound } = await Audio.Sound.createAsync({ uri: recordUri });
     await recSound.playAsync();
   };
-  const saveRecording = () => {
+  const saveRecording = async () => {  
     const updated = [...sections];
     updated[index].recordingUri = recordUri || '';
     setSections(updated);
+
+
+   // メタ保存 (audioName ベース)
+   if (audioName) {
+     const baseName = audioName
+       .replace(/\.mp3$/i, '')
+       .replace(/[^\w\-]/g, '_');
+     const dir      = FileSystem.documentDirectory + 'audio/';
+     const metaPath = `${dir}${baseName}.section.json`;
+     await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+     await FileSystem.writeAsStringAsync(
+       metaPath,
+       JSON.stringify(updated),
+       { encoding: FileSystem.EncodingType.UTF8 }
+     );
+   }
+
+
+
   };
 
   useEffect(() => {
     setIsMemoChanged(memo.trim() !== section.memo.trim());
   }, [memo, section.memo]);
-  const saveMemo = () => {
+  const saveMemo = async () => {
     const updated = [...sections];
     updated[index].memo = memo;
     setSections(updated);
     setIsMemoChanged(false);
+
+
+    // メタ保存
+    if (audioUri) {
+      const fileName = audioUri.split('/').pop()!;
+      const mp3Dir   = FileSystem.documentDirectory + 'audio/';
+      const metaPath = mp3Dir + fileName.replace(/\.mp3$/, '') + '.section.json';
+      await FileSystem.makeDirectoryAsync(mp3Dir, { intermediates: true });
+      await FileSystem.writeAsStringAsync(metaPath, JSON.stringify(updated), {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+    }
+
+
+
   };
 
   return (
